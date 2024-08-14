@@ -1,0 +1,103 @@
+import os
+
+import disnake
+from disnake.ui import Modal, TextInput
+
+from choices_list import FORMAT
+
+messages_cache = {}
+
+
+class RegistrationModalOne(Modal):
+    def __init__(self, title: str, custom_id: str, data: dict, googleSheetsManager):
+        input_name = "Team Name" if data["form"] != FORMAT.get("1x1") else "Nickname"
+
+        components = [
+            TextInput(
+                label=input_name,
+                placeholder=input_name,
+                custom_id="nickname"
+            ),
+            TextInput(
+                label="Phone",
+                placeholder="Phone number",
+                custom_id="phone"
+            ),
+            TextInput(
+                label="Branch",
+                placeholder="Enter the Branch",
+                custom_id="branch"
+            ),
+        ]
+
+        if data["form"] != FORMAT.get("1x1"):
+            components.append(
+                TextInput(
+                    label="Player's nicknames",
+                    placeholder="Nickname1, Nickname2, etc",
+                    custom_id="teammates"
+                )
+            )
+
+        self.data = data
+        self.googleSheetsManager = googleSheetsManager
+        super().__init__(title=title, custom_id=custom_id, components=components)
+
+    async def callback(self, interaction: disnake.ModalInteraction):
+        user_data = {}
+        for key, value in interaction.text_values.items():
+            user_data[key] = value
+
+        user_data["discord"] = interaction.user.name
+        user_data["tournament"] = self.data["tournament"]
+        user_data["tournament_name"] = self.data["tournament_name"]
+
+        teammates = ""
+
+        teammates_list = user_data.get("teammates").split(",")
+
+        for i, team_tmp in enumerate(teammates_list):
+            if i < len(teammates_list) - 1:
+                teammates += team_tmp.strip() + "\n"
+            else:
+                teammates += team_tmp.strip()
+
+        await self.googleSheetsManager.add_new_user(os.getenv("USERS_DATABASE_TABLE"), [
+            user_data.get("nickname"), user_data.get("phone"), user_data.get("branch"),
+            teammates, user_data.get("discord"), self.data["game"], self.data["form"], user_data["tournament"],
+            user_data["tournament_name"]
+        ])
+
+        channel_name = interaction.channel.name
+
+        if messages_cache.get(channel_name) is None:
+            embed = disnake.Embed(title="List of participants:", color=7339915)
+
+            messages_cache[channel_name] = {}
+            messages_cache[channel_name]["users"] = []
+
+            # Получение списка пользователей из Google Sheets
+            users_list = await self.googleSheetsManager.get_item_by_field(user_data["tournament"], 7)
+
+            participants = "\n".join(user_item[0] for user_item in users_list)
+            messages_cache[channel_name]["users"] = [user_item[0] for user_item in users_list]
+
+            embed.description = participants
+
+            await interaction.response.send_message(embed=embed)
+            messages_cache[channel_name]["message"] = await interaction.original_message()
+        else:
+            if user_data.get("nickname").lower() not in [user.lower() for user in messages_cache[channel_name]["users"]]:
+                messages_cache[channel_name]["users"].append(user_data.get("nickname"))
+                old_embed = messages_cache[channel_name]["message"].embeds[0]
+                new_embed = disnake.Embed(
+                    title=old_embed.title,
+                    color=old_embed.color
+                )
+
+                participants = "\n".join(messages_cache[channel_name]["users"])
+                new_embed.description = participants
+
+                messages_cache[channel_name]["message"] = await messages_cache[channel_name]["message"].edit(embed=new_embed)
+
+            await interaction.response.send_message("Registration is completed!", ephemeral=True)
