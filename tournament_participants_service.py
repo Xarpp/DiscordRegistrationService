@@ -57,13 +57,17 @@ class TournamentParticipantsService:
         while not self.interrupted:
             try:
                 data = self.googleSheetsManager.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
-                for google_participant_item in data:
+                for index, google_participant_item in enumerate(data):
+                    if not google_participant_item:
+                        continue
                     if not (google_participant_item[7] or google_participant_item[0]):
                         continue
 
                     tournament_id = google_participant_item[7]
                     username = google_participant_item[0]
-                    is_participant_added = True if google_participant_item[9] == "TRUE" else False
+                    add_flag = google_participant_item[9]
+
+                    is_participant_added = True if add_flag == "TRUE" else False
 
                     if tournament_id in self.complete_tournaments:
                         loggerParticipantService.debug(f"Tournament {tournament_id} is already complete")
@@ -80,24 +84,29 @@ class TournamentParticipantsService:
                                             if participant["name"].lower() == username.lower()), None)
 
                         if participant:
-                            if is_participant_added:
-                                continue
-                            elif not is_participant_added:
+                            if not is_participant_added:
                                 self.del_participant_from_tournament(tournament_id, participant['id'])
                                 participants.remove(participant)
                                 loggerParticipantService.info(f"User {participant['name']} was deleted from tournament"
                                                               f" {tournament_id}")
                         elif not participant:
-                            if not is_participant_added:
-                                continue
-                            elif is_participant_added:
+                            if is_participant_added:
                                 new_participant = self.add_participant_from_tournament(tournament_id, username)
+
                                 participants.append(new_participant)
                                 loggerParticipantService.info(f"User {new_participant['name']} was added in tournament"
                                                               f" {tournament_id}")
+                        if add_flag == "DELETED":
+                            loggerParticipantService.info(add_flag)
+                            self.googleSheetsManager.delete_row(index+2)
                     else:
                         self.complete_tournaments.append(tournament_id)
             except Exception as e:
                 exception_info = traceback.format_exc()
                 loggerParticipantService.error(f"{e}\n{exception_info}")
             sleep(5)
+
+
+if __name__ == '__main__':
+    tournamentParticipantsService = TournamentParticipantsService()
+    tournamentParticipantsService.run()

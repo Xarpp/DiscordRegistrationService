@@ -36,7 +36,7 @@ async def on_ready():
     name="ping",
     description="Responds with 'Pong!'"
 )
-async def ping(inter):
+async def ping(inter: disnake.ApplicationCommandInteraction):
     await inter.response.send_message("Pong!")
 
 
@@ -67,6 +67,7 @@ async def create(
 
     guild = inter.guild
     existing_channel = disnake.utils.get(guild.channels, name=name)
+    category = inter.channel.category
 
     if existing_channel:
         await inter.response.send_message(f"A channel with the name '{name}' already exists.", ephemeral=True)
@@ -79,13 +80,18 @@ async def create(
                                 auth=(username, password), headers=headers).json()
         tournament_name = response["tournament"]["name"]
 
-        new_channel = await guild.create_text_channel(name=name)
+        new_channel = await guild.create_text_channel(name=name, category=category)
         await inter.response.send_message(f"Channel '{new_channel.name}' created successfully!", ephemeral=True)
 
         register_button = Button(label="Confirm", style=disnake.ButtonStyle.green,
                                  custom_id=f"registration_button:{name}:{tournament}:{game}:{form}")
+
+        cancel_button = Button(label="Cancel", style=disnake.ButtonStyle.red,
+                               custom_id=f"cancel_button:{tournament}")
+
         view = View()
         view.add_item(register_button)
+        view.add_item(cancel_button)
 
         embed = disnake.Embed(
             description=f'Welcome to the **True Gamers server**! This is to confirm your participation in the '
@@ -117,6 +123,20 @@ async def on_interaction(inter):
                                          custom_id="registration_modal", data=data,
                                          googleSheetsManager=googleSheetsManager)
             await inter.response.send_modal(modal)
+        elif parts[0] == "cancel_button":
+            deleted = await googleSheetsManager.set_deleted_from_tournament(inter.user.name, parts[1])
+            if deleted:
+                await inter.response.send_message("Participation in the tournament has been canceled", ephemeral=True)
+            else:
+                await inter.response.send_message("No application for participation in the tournament was found",
+                                                  ephemeral=True)
+
+
+async def get_category(ctx):
+    channel = ctx.channel
+    if channel.category:
+        return channel.category.name
+    return False
 
 
 bot.run(TOKEN)

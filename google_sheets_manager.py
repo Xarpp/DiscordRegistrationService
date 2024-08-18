@@ -50,7 +50,13 @@ class GoogleSheetsManager:
     async def get_item_by_field(self, find_item, index):
         find_items = []
         data = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
+
+        if data is None:
+            return find_items
+
         for item in data:
+            if not item:
+                continue
             if item[index] == find_item:
                 find_items.append(item)
         return find_items
@@ -61,7 +67,7 @@ class GoogleSheetsManager:
         }
         self.sheet.values().append(
             spreadsheetId=self.spreadsheet_id, range=range_name,
-            valueInputOption='USER_ENTERED', insertDataOption='INSERT_ROWS', body=body).execute()
+            valueInputOption='RAW', insertDataOption='INSERT_ROWS', body=body).execute()
         loggerSheet.debug("New row has been added to the table")
 
     def get_users_data(self, range_data):
@@ -78,3 +84,18 @@ class GoogleSheetsManager:
         loggerSheet.debug("Adding a new user")
         await self.append_to_last_empty_row(sheet, user_data)
         loggerSheet.debug("User added successfully")
+
+    async def set_deleted_from_tournament(self, discord, tournament):
+        values = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
+        sheet_name = os.getenv("USERS_DATABASE_TABLE").split("!")[0]
+        for index, row in enumerate(values):
+            if row and row[7] == tournament and row[4] == discord:
+                row[9] = "DELETED"
+                await self.write_data(f"{sheet_name}!A{index+2}:J{index+2}", row)
+                return True
+        return False
+
+    def delete_row(self, row_index):
+        sheet_name = os.getenv("USERS_DATABASE_TABLE").split("!")[0]
+        delete_range = f"{sheet_name}!A{row_index}:J{row_index}"
+        self.sheet.values().clear(spreadsheetId=self.spreadsheet_id, range=delete_range).execute()
