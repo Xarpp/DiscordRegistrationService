@@ -38,7 +38,7 @@ class GoogleSheetsManager:
         if self.service is None:
             loggerSheet.critical("Failed to connect to any service account")
 
-    async def write_data(self, range_name, values):
+    def write_data(self, range_name, values):
         body = {
             'values': [values]
         }
@@ -47,7 +47,7 @@ class GoogleSheetsManager:
             valueInputOption='USER_ENTERED', body=body).execute()
         loggerSheet.debug(f'Writing data. Range - {range_name}. {result.get("updatedCells")} cells updated')
 
-    async def get_item_by_field(self, find_item, index):
+    def get_item_by_field(self, find_item, index):
         find_items = []
         data = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
 
@@ -61,7 +61,7 @@ class GoogleSheetsManager:
                 find_items.append(item)
         return find_items
 
-    async def append_to_last_empty_row(self, range_name, values):
+    def append_to_last_empty_row(self, range_name, values):
         body = {
             'values': [values]
         }
@@ -80,18 +80,18 @@ class GoogleSheetsManager:
             loggerSheet.debug("Data received successfully ")
             return values
 
-    async def add_new_user(self, sheet, user_data):
+    def add_new_user(self, sheet, user_data):
         loggerSheet.debug("Adding a new user")
-        await self.append_to_last_empty_row(sheet, user_data)
+        self.append_to_last_empty_row(sheet, user_data)
         loggerSheet.debug("User added successfully")
 
-    async def set_deleted_from_tournament(self, discord, tournament):
+    def set_deleted_from_tournament(self, discord, tournament):
         values = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
         sheet_name = os.getenv("USERS_DATABASE_TABLE").split("!")[0]
         for index, row in enumerate(values):
             if row and row[7] == tournament and row[4] == discord:
                 row[9] = "DELETED"
-                await self.write_data(f"{sheet_name}!A{index+2}:J{index+2}", row)
+                self.write_data(f"{sheet_name}!A{index+2}:J{index+2}", row)
                 return True
         return False
 

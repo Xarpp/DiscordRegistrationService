@@ -1,23 +1,22 @@
 import os
-import threading
+from time import sleep
 
 import requests
 import disnake
 from disnake.ext import commands
 from disnake.ui import Button, View
-import tournament_participants_service
 from choices_list import *
-from google_sheets_manager import GoogleSheetsManager
-from modals.registration_modal import RegistrationModalOne
+from google_sheets_manager_v2 import GoogleSheetsManager
+from modals.registration_modal import RegistrationModalOne, messages_cache, clear_messages
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 googleSheetsManager = GoogleSheetsManager(os.getenv("SHEET_ID"))
 
-tournament_participants_service = tournament_participants_service.TournamentParticipantsService()
-
-my_thread = threading.Thread(target=tournament_participants_service.run)
-
-my_thread.start()
+# tournament_participants_service = tournament_participants_service.TournamentParticipantsService()
+#
+# my_thread = threading.Thread(target=tournament_participants_service.run)
+#
+# my_thread.start()
 
 intents = disnake.Intents.default()
 intents.message_content = True
@@ -124,12 +123,31 @@ async def on_interaction(inter):
                                          googleSheetsManager=googleSheetsManager)
             await inter.response.send_modal(modal)
         elif parts[0] == "cancel_button":
-            deleted = await googleSheetsManager.set_deleted_from_tournament(inter.user.name, parts[1])
-            if deleted:
-                await inter.response.send_message("Participation in the tournament has been canceled", ephemeral=True)
-            else:
-                await inter.response.send_message("No application for participation in the tournament was found",
-                                                  ephemeral=True)
+            await inter.response.defer()
+
+            await googleSheetsManager.set_deleted_from_tournament(inter.user.name, parts[1])
+            await clear_messages(inter)
+
+            channel_name = inter.channel.name
+
+            if messages_cache.get(channel_name) is not None:
+                del messages_cache[channel_name]
+
+            embed = disnake.Embed(title="List of participants:", color=7339915)
+
+            users_list = googleSheetsManager.get_item_by_field(parts[1])
+
+            participants = ""
+
+            for user in users_list:
+                if user[9] != "DELETED":
+                    participants += f"{user[0]}\n"
+
+            embed.description = participants
+
+            await inter.followup.send(embed=embed)
+
+            await inter.followup.send("Participation in the tournament has been canceled", ephemeral=True)
 
 
 async def get_category(ctx):

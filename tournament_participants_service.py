@@ -3,7 +3,7 @@ import traceback
 from time import sleep
 import requests
 from logger import get_logger
-from google_sheets_manager import GoogleSheetsManager
+from google_sheets_manager_v2 import GoogleSheetsManager
 
 loggerParticipantService = get_logger(os.path.basename(__file__))
 
@@ -97,14 +97,15 @@ class TournamentParticipantsService:
                                 loggerParticipantService.info(f"User {new_participant['name']} was added in tournament"
                                                               f" {tournament_id}")
                         if add_flag == "DELETED":
-                            loggerParticipantService.info(add_flag)
+                            loggerParticipantService.info(f'{add_flag} - {index+2}')
                             self.googleSheetsManager.delete_row(index+2)
                     else:
                         self.complete_tournaments.append(tournament_id)
             except Exception as e:
                 exception_info = traceback.format_exc()
                 loggerParticipantService.error(f"{e}\n{exception_info}")
-            sleep(5)
+                continue
+            sleep(3)
 
 
 if __name__ == '__main__':

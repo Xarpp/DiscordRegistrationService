@@ -3,7 +3,7 @@ from dotenv import load_dotenv, find_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
 from logger import get_logger
-from gspread_formatting import CellFormat, CheckboxBuilder
+from gspread_formatting import *
 
 load_dotenv(find_dotenv(), verbose=True, override=True)
 
@@ -16,7 +16,6 @@ class GoogleSheetsManager:
     def __init__(self, spreadsheet_id):
         self.spreadsheet_id = spreadsheet_id
         self.sheet = None
-
         service_account_files = [os.getenv('SHEET_SERVICE_ACCOUNT_FILE'),
                                  os.getenv('SHEET_SERVICE_ACCOUNT_FILE_RESERVE')]
 
@@ -36,25 +35,20 @@ class GoogleSheetsManager:
         if self.sheet is None:
             loggerSheet.critical("Failed to connect to any service account")
 
-    def write_data(self, range_name, values):
+    async def write_data(self, range_name, values):
         sheet_name, cell_range = range_name.split('!')
         worksheet = self.sheet.worksheet(sheet_name)
         cell_list = worksheet.range(cell_range)
 
-        for i, cell in enumerate(cell_list[:-1]):  # Обновляем все ячейки кроме последней
+        for i, cell in enumerate(cell_list):
             cell.value = values[i]
 
-            # Установка значения последней ячейки и преобразование её в чекбокс
-        last_cell = cell_list[-1]
-        last_cell.value = True  # Значение True означает отмеченный чекбокс
-        checkbox_format = CellFormat(checkbox=CheckboxBuilder(True))
-        worksheet.format_cell(last_cell.row, last_cell.col, checkbox_format)
+        worksheet.update_cells(cell_list)
 
-        # Обновление всех ячеек на листе
-        worksheet.update_cells(cell_list[:-1])  # Обновляем все ячейки кроме последней
-        worksheet.update_cell(last_cell.row, last_cell.col)  # Обновляем только последнюю ячейку
-
-        loggerSheet.debug(f'Writing data. Range - {range_name}. {len(cell_list)} cells updated')
+        validation_rule = DataValidationRule(
+            BooleanCondition('BOOLEAN', ['TRUE', 'FALSE']),
+            showCustomUi=True)
+        set_data_validation_for_cell_range(worksheet, f"J{cell_list[-1].row}", validation_rule)
 
     def get_item_by_field(self, value):
         all_values = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
@@ -66,7 +60,7 @@ class GoogleSheetsManager:
 
         return matching_rows
 
-    def append_to_first_empty_row(self, values):
+    async def append_to_first_empty_row(self, values):
         sheet_name = os.getenv("USERS_DATABASE_TABLE").split("!")[0]
         worksheet = self.sheet.worksheet(sheet_name)
 
@@ -76,7 +70,7 @@ class GoogleSheetsManager:
             if item == '':
                 first_empty_row = index
 
-        self.write_data(f"{sheet_name}!A{first_empty_row}:J{first_empty_row}", values)
+        await self.write_data(f"{sheet_name}!A{first_empty_row}:J{first_empty_row}", values)
         loggerSheet.debug("New row has been added to the first empty row of the table")
 
     def get_users_data(self, range_data):
@@ -91,19 +85,18 @@ class GoogleSheetsManager:
             loggerSheet.debug("Data received successfully")
             return values
 
-    async def add_new_user(self, sheet_name, user_data):
+    async def add_new_user(self, user_data):
         loggerSheet.debug("Adding a new user")
-        self.append_to_first_empty_row(user_data)
+        await self.append_to_first_empty_row(user_data)
         loggerSheet.debug("User added successfully")
 
-    def set_deleted_from_tournament(self, discord, tournament):
+    async def set_deleted_from_tournament(self, discord, tournament):
         values = self.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
         sheet_name = os.getenv("USERS_DATABASE_TABLE").split("!")[0]
-
         for index, row in enumerate(values):
             if row and row[7] == tournament and row[4] == discord:
                 row[9] = "DELETED"
-                self.write_data(f"{sheet_name}!A{index + 2}:J{index + 2}", row)
+                await self.write_data(f"{sheet_name}!A{index + 2}:J{index + 2}", row)
                 return True
         return False
 
@@ -112,7 +105,6 @@ class GoogleSheetsManager:
         worksheet = self.sheet.worksheet(sheet_name)
         worksheet.delete_rows(row_index)
         loggerSheet.debug(f"Row {row_index} has been deleted from the table")
-
 
 if __name__ == '__main__':
     googleSheetManager = GoogleSheetsManager(os.getenv("SHEET_ID"))

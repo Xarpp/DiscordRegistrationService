@@ -15,7 +15,7 @@ FORMATTER = logging.Formatter(fmt='%(asctime)s — %(filename)s — %(lineno)d �
 def get_console_handler():
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(FORMATTER)
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.INFO)
     return console_handler
 
 

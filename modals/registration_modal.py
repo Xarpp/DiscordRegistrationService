@@ -1,5 +1,3 @@
-import os
-
 import disnake
 from disnake.ui import Modal, TextInput
 
@@ -14,6 +12,9 @@ async def clear_messages(inter):
         for message in messages[:-1]:
             await message.delete()
 
+
+async def create_participants_list_mess(list_parts):
+    pass
 
 class RegistrationModalOne(Modal):
     def __init__(self, title: str, custom_id: str, data: dict, googleSheetsManager):
@@ -70,7 +71,7 @@ class RegistrationModalOne(Modal):
                 else:
                     teammates += team_tmp.strip()
 
-        users_list = await self.googleSheetsManager.get_item_by_field(user_data["tournament"], 7)
+        users_list = self.googleSheetsManager.get_item_by_field(user_data["tournament"])
 
         for user in users_list:
             if user[0].lower() == user_data.get("nickname").lower():
@@ -79,12 +80,6 @@ class RegistrationModalOne(Modal):
             # if user[4].lower() == user_data.get("discord").lower():
             #     return await interaction.response.send_message("This discord has already been registered, try another "
             #                                                    "one", ephemeral=True)
-
-        await self.googleSheetsManager.add_new_user(os.getenv("USERS_DATABASE_TABLE"), [
-            user_data.get("nickname"), user_data.get("phone"), user_data.get("branch"),
-            teammates, user_data.get("discord"), self.data["game"], self.data["form"], user_data["tournament"],
-            user_data["tournament_name"]
-        ])
 
         channel_name = interaction.channel.name
 
@@ -96,8 +91,10 @@ class RegistrationModalOne(Modal):
             messages_cache[channel_name]["users"] = []
 
             participants = "\n".join(user_item[0] for user_item in users_list)
-            participants += f'\n{user_data.get("nickname", "")}'
+            participants += f'\n{user_data.get("nickname")}'
+
             messages_cache[channel_name]["users"] = [user_item[0] for user_item in users_list]
+            messages_cache[channel_name]["users"].append(user_data.get("nickname"))
 
             embed.description = participants
 
@@ -119,3 +116,8 @@ class RegistrationModalOne(Modal):
 
             await interaction.response.send_message("Registration is completed!", ephemeral=True)
 
+        await self.googleSheetsManager.add_new_user([
+            user_data.get("nickname"), user_data.get("phone"), user_data.get("branch"),
+            teammates, user_data.get("discord"), self.data["game"], self.data["form"], user_data["tournament"],
+            user_data["tournament_name"], False
+        ])
