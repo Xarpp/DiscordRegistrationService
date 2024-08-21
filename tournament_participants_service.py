@@ -53,59 +53,62 @@ class TournamentParticipantsService:
         return participant.json()['participant']
 
     def run(self):
-        loggerParticipantService.debug("Participant service was started")
-        while not self.interrupted:
+        while True:
             try:
-                data = self.googleSheetsManager.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
-                for index, google_participant_item in enumerate(data):
-                    if not google_participant_item:
-                        continue
-                    if not (google_participant_item[7] or google_participant_item[0]):
-                        continue
+                loggerParticipantService.debug("Participant service was started")
+                while not self.interrupted:
+                    data = self.googleSheetsManager.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
+                    for index, google_participant_item in enumerate(data):
+                        if not google_participant_item:
+                            continue
+                        if not (google_participant_item[7] or google_participant_item[0]):
+                            continue
 
-                    tournament_id = google_participant_item[7]
-                    username = google_participant_item[0]
-                    add_flag = google_participant_item[9]
+                        tournament_id = google_participant_item[7]
+                        username = google_participant_item[0]
+                        add_flag = google_participant_item[9]
 
-                    is_participant_added = True if add_flag == "TRUE" else False
+                        is_participant_added = True if add_flag == "TRUE" else False
 
-                    if tournament_id in self.complete_tournaments:
-                        loggerParticipantService.debug(f"Tournament {tournament_id} is already complete")
-                        continue
-                    tournament_data = self.get_tournament_data(tournament_id)
-                    if tournament_data['tournament']['state'] == "pending":
-                        participants = self.pending_tournaments.get(tournament_id, None)
+                        if tournament_id in self.complete_tournaments:
+                            loggerParticipantService.debug(f"Tournament {tournament_id} is already complete")
+                            continue
+                        tournament_data = self.get_tournament_data(tournament_id)
+                        if tournament_data['tournament']['state'] == "pending":
+                            participants = self.pending_tournaments.get(tournament_id, None)
 
-                        if participants is None:
-                            participants = self.get_participants_data(tournament_id)
-                            self.pending_tournaments[tournament_id] = participants
+                            if participants is None:
+                                participants = self.get_participants_data(tournament_id)
+                                self.pending_tournaments[tournament_id] = participants
 
-                        participant = next((participant for participant in participants
-                                            if participant["name"].lower() == username.lower()), None)
+                            participant = next((participant for participant in participants
+                                                if participant["name"].lower() == username.lower()), None)
 
-                        if participant:
-                            if not is_participant_added:
-                                self.del_participant_from_tournament(tournament_id, participant['id'])
-                                participants.remove(participant)
-                                loggerParticipantService.info(f"User {participant['name']} was deleted from tournament"
-                                                              f" {tournament_id}")
-                        elif not participant:
-                            if is_participant_added:
-                                new_participant = self.add_participant_from_tournament(tournament_id, username)
+                            if participant:
+                                if not is_participant_added:
+                                    self.del_participant_from_tournament(tournament_id, participant['id'])
+                                    participants.remove(participant)
+                                    loggerParticipantService.info(f"User {participant['name']} was deleted from tournament"
+                                                                  f" {tournament_id}")
+                            elif not participant:
+                                if is_participant_added:
+                                    new_participant = self.add_participant_from_tournament(tournament_id, username)
 
-                                participants.append(new_participant)
-                                loggerParticipantService.info(f"User {new_participant['name']} was added in tournament"
-                                                              f" {tournament_id}")
-                        if add_flag == "DELETED":
-                            loggerParticipantService.info(f'{add_flag} - {index+2}')
-                            self.googleSheetsManager.delete_row(index+2)
-                    else:
-                        self.complete_tournaments.append(tournament_id)
+                                    participants.append(new_participant)
+                                    loggerParticipantService.info(f"User {new_participant['name']} was added in tournament"
+                                                                  f" {tournament_id}")
+                            if add_flag == "DELETED":
+                                loggerParticipantService.info(f'{add_flag} - {index+2}')
+                                self.googleSheetsManager.delete_row(index+2)
+                        else:
+                            self.complete_tournaments.append(tournament_id)
+                    sleep(5)
             except Exception as e:
                 exception_info = traceback.format_exc()
-                loggerParticipantService.error(f"{e}\n{exception_info}")
+                loggerParticipantService.error(f"Сервис столкнулся с ошибкой:\n{e}\n{exception_info}")
+                loggerParticipantService.info("Попытка перезапуска сервиса через 30 секунд...")
+                sleep(30)  # Пауза перед перезапуском сервиса
                 continue
-            sleep(3)
 
 
 if __name__ == '__main__':
