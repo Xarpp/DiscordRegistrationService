@@ -61,7 +61,7 @@ class GoogleSheetsManager:
                 find_items.append(item)
         return find_items
 
-    def append_to_last_empty_row(self, range_name, values):
+    def append_to_last_empty_row_v1(self, range_name, values):
         body = {
             'values': [values]
         }

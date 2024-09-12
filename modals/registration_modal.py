@@ -116,8 +116,12 @@ class RegistrationModalOne(Modal):
 
             await interaction.response.send_message("Registration is completed!", ephemeral=True)
 
+        role = disnake.utils.get(interaction.guild.roles, name=self.data["tournament_name"])
+        if role:
+            await interaction.user.add_roles(role)
+
         await self.googleSheetsManager.add_new_user([
             user_data.get("nickname"), user_data.get("phone"), user_data.get("branch"),
             teammates, user_data.get("discord"), self.data["game"], self.data["form"], user_data["tournament"],
-            user_data["tournament_name"], False
+            user_data["tournament_name"]
         ])

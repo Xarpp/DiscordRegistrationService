@@ -70,7 +70,7 @@ class GoogleSheetsManager:
             if item == '':
                 first_empty_row = index
 
-        await self.write_data(f"{sheet_name}!A{first_empty_row}:J{first_empty_row}", values)
+        await self.write_data(f"{sheet_name}!A{first_empty_row}:I{first_empty_row}", values)
         loggerSheet.debug("New row has been added to the first empty row of the table")
 
     def get_users_data(self, range_data):
@@ -106,7 +106,8 @@ class GoogleSheetsManager:
         worksheet.delete_rows(row_index)
         loggerSheet.debug(f"Row {row_index} has been deleted from the table")
 
+
 if __name__ == '__main__':
     googleSheetManager = GoogleSheetsManager(os.getenv("SHEET_ID"))
     googleSheetManager.append_to_first_empty_row(
-        ['test2', 'test2', 'test2', '', '_danielka', 'FORTNITE', '1x1', 'lv6lz29f', 'test9', 'TRUE'])
+        ['test2', 'test2', 'test2', '', '_danielka', 'FORTNITE', '1x1', 'lv6lz29f', 'test9'])
