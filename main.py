@@ -18,8 +18,8 @@ googleSheetsManager = GoogleSheetsManager(os.getenv("SHEET_ID"))
 intents = disnake.Intents.default()
 intents.message_content = True
 
+# guild_id = 1159429797835976776
 guild_id = 1251650828519870532
-
 bot = commands.InteractionBot(intents=intents, test_guilds=[guild_id])
 
 
@@ -85,7 +85,6 @@ async def create(
 
         new_confirmation_channel = await guild.create_text_channel(name=confirmation_channel, category=category)
 
-        await new_confirmation_channel.edit(sync_permissions=True)
         await inter.response.send_message(f"Channel '{new_confirmation_channel.name}' created successfully!",
                                           ephemeral=True)
 
@@ -105,7 +104,7 @@ async def create(
                                  custom_id=f"registration_button:{tournament_channel}:{tournament}:{game}:{form}")
 
         cancel_button = Button(label="Cancel", style=disnake.ButtonStyle.red,
-                               custom_id=f"cancel_button:{tournament_channel}:{tournament}")
+                               custom_id=f"cancel_button:{tournament}")
 
         view = View()
         view.add_item(register_button)
@@ -119,9 +118,18 @@ async def create(
 
         embed.set_footer(text='To confirm your participation, click on the "Confirm" button and fill out the form. '
                               'We will be waiting for you at our computer club branches.')
+        await new_confirmation_channel.edit(sync_permissions=True)
         await new_confirmation_channel.set_permissions(guild.default_role, send_messages=False)
 
         await new_confirmation_channel.send(view=view, embed=embed)
+
+        embed = disnake.Embed(
+            title='Hello, True Gamer!',
+            description=f'There is a conversation about the tournament that will take place {prefix}.',
+            color=7339915
+        )
+
+        await new_tournament_channel.send(embed=embed)
 
 
 @bot.event
@@ -145,10 +153,11 @@ async def on_interaction(inter):
             await inter.response.defer()
 
             role = disnake.utils.get(inter.guild.roles, name=parts[1])
-            tournament = parts[2]
+            tournament = parts[1]
 
             if role:
                 await inter.user.remove_roles(role)
+
             await googleSheetsManager.set_deleted_from_tournament(inter.user.name, tournament)
             await clear_messages(inter)
 
@@ -189,8 +198,10 @@ def add_role_to_json(role, confirmation_id, tournament_id):
     except FileNotFoundError:
         roles_data = {}
 
-    roles_data[str(role.id)] = {"role_name": f"{role.name}", "creation_date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "confirmation_channel_id": f"{confirmation_id}", "tournament_channel_id": f"{tournament_id}"}
+    roles_data[str(role.id)] = {"role_name": f"{role.name}",
+                                "creation_date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                "confirmation_channel_id": f"{confirmation_id}",
+                                "tournament_channel_id": f"{tournament_id}"}
 
     with open("roles.json", "w") as file:
         json.dump(roles_data, file)
@@ -239,5 +250,6 @@ async def schedule_remove_old_roles():
     while True:
         await remove_old_roles()
         await asyncio.sleep(86400)  # 86400 секунд = 24 часа
+
 
 bot.run(TOKEN)

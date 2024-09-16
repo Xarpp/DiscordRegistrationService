@@ -13,9 +13,6 @@ async def clear_messages(inter):
             await message.delete()
 
 
-async def create_participants_list_mess(list_parts):
-    pass
-
 class RegistrationModalOne(Modal):
     def __init__(self, title: str, custom_id: str, data: dict, googleSheetsManager):
         input_name = "Team Name" if data["form"] != FORMAT.get("1x1") else "Nickname"
@@ -77,44 +74,45 @@ class RegistrationModalOne(Modal):
             if user[0].lower() == user_data.get("nickname").lower():
                 return await interaction.response.send_message("This nickname is already registered, try another one",
                                                                ephemeral=True)
-            # if user[4].lower() == user_data.get("discord").lower():
-            #     return await interaction.response.send_message("This discord has already been registered, try another "
-            #                                                    "one", ephemeral=True)
+            if user[4].lower() == user_data.get("discord").lower():
+                return await interaction.response.send_message("This discord has already been registered, try another "
+                                                               "one", ephemeral=True)
 
         channel_name = interaction.channel.name
 
-        if messages_cache.get(channel_name) is None:
-            await clear_messages(interaction)
-            embed = disnake.Embed(title="List of participants:", color=7339915)
+        await clear_messages(interaction)
+        embed = disnake.Embed(title="List of participants:", color=7339915)
 
-            messages_cache[channel_name] = {}
-            messages_cache[channel_name]["users"] = []
+        messages_cache[channel_name] = {}
+        messages_cache[channel_name]["users"] = []
 
-            participants = "\n".join(user_item[0] for user_item in users_list)
-            participants += f'\n{user_data.get("nickname")}'
+        participants = "\n".join(user_item[0] for user_item in users_list if user_item[9] != "DELETED")
+        participants += f'\n{user_data.get("nickname")}'
 
-            messages_cache[channel_name]["users"] = [user_item[0] for user_item in users_list]
-            messages_cache[channel_name]["users"].append(user_data.get("nickname"))
+        messages_cache[channel_name]["users"] = [user_item[0] for user_item in users_list]
+        messages_cache[channel_name]["users"].append(user_data.get("nickname"))
 
-            embed.description = participants
+        embed.description = participants
 
-            await interaction.response.send_message(embed=embed)
-            messages_cache[channel_name]["message"] = await interaction.original_message()
-        else:
-            if user_data.get("nickname").lower() not in [user.lower() for user in messages_cache[channel_name]["users"]]:
-                messages_cache[channel_name]["users"].append(user_data.get("nickname"))
-                old_embed = messages_cache[channel_name]["message"].embeds[0]
-                new_embed = disnake.Embed(
-                    title=old_embed.title,
-                    color=old_embed.color
-                )
-
-                participants = "\n".join(messages_cache[channel_name]["users"])
-                new_embed.description = participants
-
-                messages_cache[channel_name]["message"] = await messages_cache[channel_name]["message"].edit(embed=new_embed)
-
-            await interaction.response.send_message("Registration is completed!", ephemeral=True)
+        await interaction.response.send_message(embed=embed)
+        messages_cache[channel_name]["message"] = await interaction.original_message()
+        # else:
+        #     if user_data.get("nickname").lower() not in [user.lower() for user in
+        #                                                  messages_cache[channel_name]["users"]]:
+        #         messages_cache[channel_name]["users"].append(user_data.get("nickname"))
+        #         old_embed = messages_cache[channel_name]["message"].embeds[0]
+        #         new_embed = disnake.Embed(
+        #             title=old_embed.title,
+        #             color=old_embed.color
+        #         )
+        #
+        #         participants = "\n".join(messages_cache[channel_name]["users"])
+        #         new_embed.description = participants
+        #
+        #         messages_cache[channel_name]["message"] = await messages_cache[channel_name]["message"].edit(
+        #             embed=new_embed)
+        #
+        #     await interaction.response.send_message("Registration is completed!", ephemeral=True)
 
         role = disnake.utils.get(interaction.guild.roles, name=self.data["tournament_name"])
         if role:

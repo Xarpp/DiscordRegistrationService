@@ -83,7 +83,8 @@ class GoogleSheetsManager:
             loggerSheet.debug("No data found")
         else:
             loggerSheet.debug("Data received successfully")
-            return values
+            filtered_items = get_filtered_data(values)
+            return filtered_items
 
     async def add_new_user(self, user_data):
         loggerSheet.debug("Adding a new user")
@@ -107,7 +108,17 @@ class GoogleSheetsManager:
         loggerSheet.debug(f"Row {row_index} has been deleted from the table")
 
 
+def get_filtered_data(values):
+    filtered_data = []
+    for item in values:
+        if "DELETED" in item:
+            continue
+        if item[0] == '':
+            continue
+        filtered_data.append(item)
+    return filtered_data
+
+
 if __name__ == '__main__':
     googleSheetManager = GoogleSheetsManager(os.getenv("SHEET_ID"))
-    googleSheetManager.append_to_first_empty_row(
-        ['test2', 'test2', 'test2', '', '_danielka', 'FORTNITE', '1x1', 'lv6lz29f', 'test9'])
+    values = googleSheetManager.get_users_data(os.getenv("USERS_DATABASE_TABLE"))
